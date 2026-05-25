@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>VESC Terminal – Working + Debug Toggle</title>
+
+<style>
+body {
+    background:#1e1e1e;
+    font-family:Courier New;
+    margin:0;
+    padding:20px;
+    color:#0f0;
+}
+#terminal {
+    background:#000;
+    color:#0f0;
+    height:650px;
+    overflow-y:scroll;
+    padding:12px;
+    border:1px solid #333;
+    white-space:pre-wrap;
+}
+.input-line {
+    margin-top:10px;
+    display:flex;
+    gap:10px;
+    align-items:center;
+    flex-wrap:wrap;
+}
+#input {
+    flex:1;
+    background:#111;
+    color:#0f0;
+    border:1px solid #444;
+    padding:10px;
+}
+button {
+    background:#222;
+    color:#0f0;
+    border:1px solid #0f0;
+    padding:10px 20px;
+    cursor:pointer;
+}
+.hex {
+    color:#888;
+    font-size:12px;
+}
+.debug-check {
+    margin-left:10px;
+    display:inline-flex;
+    align-items:center;
+    gap:5px;
+    background:#222;
+    padding:5px 10px;
+    border-radius:4px;
+}
+</style>
+</head>
+
+<body>
+
+<div>
+    <button id="connectBtn">Connect to VESC</button>
+    <span id="status">Disconnected</span>
+    <label class="debug-check">
+        <input type="checkbox" id="debugCheckbox"> ?? Debug (show hex)
+    </label>
+</div>
+
+<div id="terminal">VESC BLE terminal ready. Type commands like "volt help".<br>Debug is OFF – only show text responses.<br>=============================================<br></div>
+
+<div class="input-line">
+    <input type="text" id="input" placeholder="Type command" autocomplete="off">
+    <button id="sendBtn">Send</button>
+</div>
+
+<script>
+
+let writeChar = null;
+let rxBuffer = [];
+let debugEnabled = false;
+
+const SERVICE_UUID = '6e400001-b5a3-f393-e0a9-e50e24dcca9e';
+const RX_UUID = '6e400002-b5a3-f393-e0a9-e50e24dcca9e';
+const TX_UUID = '6e400003-b5a3-f393-e0a9-e50e24dcca9e';
+
+const terminal = document.getElementById('terminal');
+const input = document.getElementById('input');
+const statusEl = document.getElementById('status');
+const debugCheckbox = document.getElementById('debugCheckbox');
+
+debugCheckbox.addEventListener('change', (e) => {
+    debugEnabled = e.target.checked;
+    log(`Debug ${debugEnabled ? 'ON' : 'OFF'}`);
+});
+
+function log(text, cls='') {
+    const div = document.createElement('div');
+    div.textContent = text;
+    if (cls) div.className = cls;
+    terminal.appendChild(div);
+    terminal.scrollTop = terminal.scrollHeight;
+}
+
+function logHex(data, prefix='') {
+    if (!debugEnabled) return;
+    const hex = Array.from(data).map(b => b.toString(16).padStart(2,'0')).join(' ');
+    log(prefix + ' ' + hex, 'hex');
+}
+
+// YOUR WORKING CRC (starts at 0x0000)
+function crc16(buffer) {
+    let crc = 0x0000;
+    for (let i = 0; i < buffer.length; i++) {
+        crc ^= (buffer[i] << 8);
+        for (let j = 0; j < 8; j++) {
+            if (crc & 0x8000) {
+                crc = (crc << 1) ^ 0x1021;
+            } else {
+                crc <<= 1;
+            }
+        }
+    }
+    return crc & 0xFFFF;
+}
+
+function buildPacket(text) {
+    const encoder = new TextEncoder();
+    const textBytes = encoder.encode(text);
+    const payload = new Uint8Array([0x14, ...textBytes]); // YOUR COMMAND ID
+    const len = payload.length;
+    const packet = new Uint8Array(len + 5);
+    packet[0] = 0x02;
+    packet[1] = len;
+    packet.set(payload, 2);
+    const crc = crc16(payload);
+    packet[len + 2] = (crc >> 8) & 0xFF;
+    packet[len + 3] = crc & 0xFF;
+    packet[len + 4] = 0x03;
+    return packet;
+}
+
+async function connect() {
+    try {
+        log('Requesting VESC...');
+        const device = await navigator.bluetooth.requestDevice({
+            filters: [{ services: [SERVICE_UUID] }]
+        });
+        device.addEventListener('gattserverdisconnected', () => {
+            log('Disconnected');
+            statusEl.textContent = 'Disconnected';
+        });
+        const server = await device.gatt.connect();
+        log('Connected to GATT');
+        const service = await server.getPrimaryService(SERVICE_UUID);
+        writeChar = await service.getCharacteristic(RX_UUID);
+        const notifyChar = await service.getCharacteristic(TX_UUID);
+        await notifyChar.startNotifications();
+        notifyChar.addEventListener('characteristicvaluechanged', handleNotification);
+        statusEl.textContent = 'Connected';
+        log('VESC connected');
+    } catch (err) {
+        log('CONNECT ERROR: ' + err.message);
+    }
+}
+
+function handleNotification(event) {
+    const chunk = new Uint8Array(event.target.value.buffer);
+    logHex(chunk, 'RECV');
+    for (let b of chunk) rxBuffer.push(b);
+    parsePackets();
+}
+
+function parsePackets() {
+    while (true) {
+        if (rxBuffer.length < 5) return;
+
+        // sync to start byte
+        while (rxBuffer.length > 0 && rxBuffer[0] !== 0x02) {
+            if (debugEnabled) log(`Skipping byte 0x${rxBuffer[0].toString(16)}`, 'hex');
+            rxBuffer.shift();
+        }
+        if (rxBuffer.length < 5) return;
+
+        const len = rxBuffer[1];
+        const totalLen = len + 5;
+        if (rxBuffer.length < totalLen) return;
+
+        const packet = rxBuffer.slice(0, totalLen);
+        rxBuffer = rxBuffer.slice(totalLen);
+
+        if (packet[totalLen - 1] !== 0x03) {
+            if (debugEnabled) log('Bad packet end');
+            continue;
+        }
+
+        const payload = packet.slice(2, 2 + len);
+        if (payload.length < 1) continue;
+
+        const cmd = payload[0];
+        const data = payload.slice(1);
+
+        if (debugEnabled) {
+            log('CMD 0x' + cmd.toString(16));
+            logHex(data, 'DATA');
+        }
+
+        // YOUR ORIGINAL PARSING: try to decode any packet as text
+        try {
+            const decoder = new TextDecoder();
+            const txt = decoder.decode(new Uint8Array(data));
+            const trimmed = txt.trim();
+            if (trimmed.length > 0) {
+                log('RCV: ' + trimmed);
+            } else if (debugEnabled) {
+                log('RCV: (empty)');
+            }
+        } catch (e) {
+            if (debugEnabled) log('Decode error');
+        }
+    }
+}
+
+async function send() {
+    if (!writeChar) {
+        log('Not connected');
+        return;
+    }
+    const cmd = input.value.trim();
+    if (!cmd) return;
+
+    const packet = buildPacket(cmd);
+    logHex(packet, 'SEND');
+
+    try {
+        // YOUR CHUNKED WRITE (working)
+        for (let i = 0; i < packet.length; i += 20) {
+            const chunk = packet.slice(i, i + 20);
+            await writeChar.writeValueWithoutResponse(chunk);
+            await new Promise(r => setTimeout(r, 10));
+        }
+        log('> ' + cmd);
+    } catch (err) {
+        log('SEND ERROR: ' + err.message);
+    }
+    input.value = '';
+}
+
+// Event setup
+window.addEventListener('DOMContentLoaded', () => {
+    document.getElementById('connectBtn').onclick = connect;
+    document.getElementById('sendBtn').onclick = send;
+    input.addEventListener('keypress', e => { if (e.key === 'Enter') send(); });
+});
+
+</script>
+
+</body>
+</html>

@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>VESC Terminal (Improved)</title>
+    <style>
+        * { box-sizing: border-box; }
+        body {
+            background: #1e1e1e;
+            font-family: 'Courier New', monospace;
+            margin: 0;
+            padding: 20px;
+        }
+        .container { max-width: 900px; margin: 0 auto; }
+        #terminal {
+            background: #0a0a0a;
+            color: #0f0;
+            border: 1px solid #333;
+            height: 520px;
+            overflow-y: scroll;
+            padding: 12px;
+            font-family: 'Courier New', monospace;
+            font-size: 13px;
+            white-space: pre-wrap;
+            margin-bottom: 10px;
+            line-height: 1.4;
+        }
+        .input-line { display: flex; gap: 10px; }
+        #input {
+            flex: 1;
+            background: #0a0a0a;
+            color: #0f0;
+            border: 1px solid #333;
+            padding: 10px;
+            font-family: 'Courier New', monospace;
+            font-size: 13px;
+        }
+        button {
+            background: #2a2a2a;
+            color: #0f0;
+            border: 1px solid #0f0;
+            padding: 10px 20px;
+            cursor: pointer;
+        }
+        button:hover { background: #0f0; color: #000; }
+        .status { margin-bottom: 10px; font-size: 13px; }
+        .user-command { color: #4fc3f7; }
+        .vesc-response { color: #0f0; }
+        .raw-hex { color: #888; font-size: 11px; margin-left: 20px; }
+        .error { color: #ff6666; }
+    </style>
+</head>
+<body>
+<div class="container">
+    <button id="connectBtn">Connect to VESC</button>
+    <span id="status" class="status">Disconnected</span>
+    
+    <div id="terminal">
+        > VESC Web Terminal (COMM_TERMINAL_CMD 0x21)<br>
+        > Ready. Click "Connect" and pair with your VESC BLE module.<br>
+        =============================================<br>
+    </div>
+    
+    <div class="input-line">
+        <input type="text" id="input" placeholder="Type command (e.g. volt, faults, help) and press Enter" autocomplete="off">
+        <button id="sendBtn">Send</button>
+        <button id="clearBtn">Clear</button>
+    </div>
+    
+    <small style="color:#888">Using Nordic UART Service (NUS) • COMM_TERMINAL_CMD</small>
+</div>
+
+<script>
+    // CRC16 + Packet Builder
+    function crc16(buffer) {
+        let crc = 0xFFFF;
+        for (let i = 0; i < buffer.length; i++) {
+            crc ^= (buffer[i] << 8);
+            for (let j = 0; j < 8; j++) {
+                crc = (crc & 0x8000) ? (crc << 1) ^ 0x1021 : (crc << 1);
+            }
+        }
+        return crc & 0xFFFF;
+    }
+
+    function buildPacket(payload) {
+        const len = payload.length;
+        const packet = new Uint8Array(len + 5);
+        packet[0] = 0x02;
+        packet[1] = len;
+        packet.set(payload, 2);
+        const crc = crc16(payload);
+        packet[len + 2] = (crc >> 8) & 0xFF;
+        packet[len + 3] = crc & 0xFF;
+        packet[len + 4] = 0x03;
+        return packet;
+    }
+
+    let writeChar = null;
+
+    const terminalDiv = document.getElementById('terminal');
+    const inputField = document.getElementById('input');
+    const statusSpan = document.getElementById('status');
+
+    function log(msg, className = '') {
+        const line = document.createElement('div');
+        line.textContent = msg;
+        if (className) line.className = className;
+        terminalDiv.appendChild(line);
+        terminalDiv.scrollTop = terminalDiv.scrollHeight;
+    }
+
+    function logRawHex(data, direction) {
+        const hex = Array.from(data).map(b => b.toString(16).padStart(2, '0')).join(' ');
+        log(`${direction} ${hex}`, 'raw-hex');
+    }
+
+    // ==================== Send ====================
+    async function sendTextToVESC(text) {
+        if (!writeChar) return;
+
+        const textWithNewline = text + '\n';
+        const encoder = new TextEncoder();
+        const textBytes = encoder.encode(textWithNewline);
+
+        const payload = new Uint8Array([0x21, ...textBytes]);
+        const packet = buildPacket(payload);
+
+        logRawHex(packet, '? SEND TERM');
+        log(`> ${text}`, 'user-command');
+
+        try {
+            await writeChar.writeValueWithoutResponse(packet);
+
+            setTimeout(async () => {
+                const statusPacket = buildPacket(new Uint8Array([0x04]));
+                logRawHex(statusPacket, '? SEND STATUS');
+                await writeChar.writeValueWithoutResponse(statusPacket);
+            }, 400);
+        } catch (e) {
+            log(`Send error: ${e.message}`, 'error');
+        }
+    }
+
+    // ==================== Receive - HEAVY DEBUG ====================
+    function processReceivedData(newData) {
+        logRawHex(newData, '? RECV RAW *** DATA RECEIVED ***');
+
+        const text = new TextDecoder().decode(newData);
+        if (text && text.trim()) {
+            log(`txt rcv: ${text}`, 'vesc-response');
+        } else {
+            log("txt rcv: (only binary data)", 'raw-hex');
+        }
+    }
+
+    // ==================== Connect with Extra Debug ====================
+    async function connectVESC() {
+        try {
+            statusSpan.textContent = "Connecting...";
+
+            const device = await navigator.bluetooth.requestDevice({
+                acceptAllDevices: true,
+                optionalServices: ['6e400001-b5a3-f393-e0a9-e50e24dcca9e']
+            });
+
+            const server = await device.gatt.connect();
+            const service = await server.getPrimaryService('6e400001-b5a3-f393-e0a9-e50e24dcca9e');
+
+            const txChar = await service.getCharacteristic('6e400002-b5a3-f393-e0a9-e50e24dcca9e');
+            const rxChar = await service.getCharacteristic('6e400003-b5a3-f393-e0a9-e50e24dcca9e');
+
+            writeChar = txChar;
+
+            log("RX Characteristic found", 'vesc-response');
+
+            await rxChar.startNotifications();
+            log("? Notifications STARTED on RX", 'vesc-response');
+
+            rxChar.addEventListener('characteristicvaluechanged', (event) => {
+                const value = event.target.value;
+                const data = new Uint8Array(value.buffer);
+                log("? Notification Event Fired!", 'vesc-response');
+                processReceivedData(data);
+            });
+
+            log("? Full setup done - Ready", 'vesc-response');
+            statusSpan.textContent = `Connected to ${device.name || 'VESC BLE UART'}`;
+
+        } catch (err) {
+            log(`Connection error: ${err.message}`, 'error');
+            statusSpan.textContent = "Disconnected";
+        }
+    }
+
+    // Event Listeners
+    document.getElementById('connectBtn').addEventListener('click', connectVESC);
+
+    async function sendCurrent() {
+        const text = inputField.value.trim();
+        if (text) {
+            await sendTextToVESC(text);
+            inputField.value = '';
+        }
+    }
+
+    document.getElementById('sendBtn').addEventListener('click', sendCurrent);
+    inputField.addEventListener('keypress', e => { if (e.key === 'Enter') sendCurrent(); });
+</script>
+
+</body>
+</html>

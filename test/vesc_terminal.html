@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>VESC Terminal (like VESC Tool)</title>
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+        body {
+            background: #1e1e1e;
+            font-family: 'Courier New', monospace;
+            margin: 0;
+            padding: 20px;
+        }
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+        }
+        #terminal {
+            background: #0a0a0a;
+            color: #0f0;
+            border: 1px solid #333;
+            height: 500px;
+            overflow-y: scroll;
+            padding: 10px;
+            font-family: 'Courier New', monospace;
+            font-size: 13px;
+            white-space: pre-wrap;
+            margin-bottom: 10px;
+        }
+        .input-line {
+            display: flex;
+            gap: 10px;
+        }
+        #input {
+            flex: 1;
+            background: #0a0a0a;
+            color: #0f0;
+            border: 1px solid #333;
+            padding: 8px;
+            font-family: 'Courier New', monospace;
+            font-size: 13px;
+        }
+        button {
+            background: #2a2a2a;
+            color: #0f0;
+            border: 1px solid #0f0;
+            padding: 8px 16px;
+            cursor: pointer;
+            font-family: monospace;
+        }
+        button:hover {
+            background: #0f0;
+            color: #000;
+        }
+        .status {
+            color: #ffa500;
+            margin-bottom: 10px;
+            font-size: 12px;
+        }
+        .user-command {
+            color: #0af;
+        }
+        .vesc-response {
+            color: #0f0;
+        }
+        .raw-hide {
+            display: none;
+        }
+        hr {
+            border-color: #333;
+            margin: 5px 0;
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <button id="connectBtn">?? Connect to VESC</button>
+    <span id="status" class="status">Disconnected</span>
+    <div id="terminal">> VESC Terminal<br>> Type commands like "foc openloop 100" or "get rpm"<br>=============================================<br></div>
+    <div class="input-line">
+        <input type="text" id="input" placeholder="Type VESC command and press Enter" autocomplete="off">
+        <button id="sendBtn">Send</button>
+    </div>
+    <small style="color:#888">Sends text as COMM_PRINT. VESC responses appear here.</small>
+</div>
+
+<script>
+    // ---------- CRC16 (standard VESC) ----------
+    function crc16(buffer) {
+        let crc = 0xFFFF;
+        for (let i = 0; i < buffer.length; i++) {
+            crc ^= (buffer[i] << 8);
+            for (let j = 0; j < 8; j++) {
+                crc = (crc & 0x8000) ? (crc << 1) ^ 0x1021 : (crc << 1);
+            }
+        }
+        return crc & 0xFFFF;
+    }
+
+    // ---------- Build VESC packet ----------
+    function buildPacket(payload) {
+        const len = payload.length;
+        const packet = new Uint8Array(len + 5);
+        packet[0] = 0x02;                     // start
+        packet[1] = len;                      // length
+        packet.set(payload, 2);               // payload
+        const crc = crc16(payload);
+        packet[len + 2] = (crc >> 8) & 0xFF;
+        packet[len + 3] = crc & 0xFF;
+        packet[len + 4] = 0x03;               // stop
+        return packet;
+    }
+
+    // ---------- Global BLE ----------
+    let writeChar = null;
+    let receiveBuffer = new Uint8Array(0);
+    let isConnected = false;
+
+    const terminalDiv = document.getElementById('terminal');
+    const inputField = document.getElementById('input');
+    const sendBtn = document.getElementById('sendBtn');
+    const connectBtn = document.getElementById('connectBtn');
+    const statusSpan = document.getElementById('status');
+
+    function log(msg, className = '') {
+        const line = document.createElement('div');
+        line.textContent = msg;
+        if (className) line.className = className;
+        terminalDiv.appendChild(line);
+        terminalDiv.scrollTop = terminalDiv.scrollHeight;
+    }
+
+    // Show VESC response (text)
+    function showVescResponse(text) {
+        log(`[VESC] ${text}`, 'vesc-response');
+    }
+
+    // Show user command
+    function showUserCommand(cmd) {
+        log(`> ${cmd}`, 'user-command');
+    }
+
+    // ---------- Send text to VESC (as COMM_PRINT) ----------
+    async function sendTextToVESC(text) {
+        if (!writeChar) {
+            log("? Not connected", 'vesc-response');
+            return false;
+        }
+        // Append newline? VESC commands usually need \r or \n
+        // Let's send exactly what user typed, but many VESC apps auto-add \n
+        // We'll add \r\n to make it work like terminal
+        const textWithNewline = text + '\r\n';
+        const encoder = new TextEncoder();
+        const textBytes = encoder.encode(textWithNewline);
+        // Payload: COMM_PRINT (0x1C) + text bytes
+        const payload = new Uint8Array([0x1C, ...textBytes]);
+        const packet = buildPacket(payload);
+        
+        try {
+            await writeChar.writeValue(packet);
+            showUserCommand(text);
+            return true;
+        } catch (e) {
+            log(`Send error: ${e.message}`, 'vesc-response');
+            return false;
+        }
+    }
+
+    // ---------- Parse incoming VESC data ----------
+    function processReceivedData(newData) {
+        // Append to buffer
+        const combined = new Uint8Array(receiveBuffer.length + newData.length);
+        combined.set(receiveBuffer, 0);
+        combined.set(newData, receiveBuffer.length);
+        receiveBuffer = combined;
+
+        while (receiveBuffer.length >= 5) {
+            // Find start byte
+            if (receiveBuffer[0] !== 0x02) {
+                const idx = receiveBuffer.indexOf(0x02);
+                if (idx === -1) {
+                    receiveBuffer = new Uint8Array(0);
+                    return;
+                }
+                receiveBuffer = receiveBuffer.slice(idx);
+                if (receiveBuffer.length < 5) return;
+            }
+
+            const len = receiveBuffer[1];
+            const fullLen = len + 5;
+            if (receiveBuffer.length < fullLen) return;
+
+            const packet = receiveBuffer.slice(0, fullLen);
+            receiveBuffer = receiveBuffer.slice(fullLen);
+
+            // Verify stop byte
+            if (packet[fullLen - 1] !== 0x03) {
+                log("?? Bad packet (stop byte missing)", 'vesc-response');
+                continue;
+            }
+
+            const payload = packet.slice(2, fullLen - 3);
+            const receivedCrc = (packet[fullLen - 3] << 8) | packet[fullLen - 2];
+            const computedCrc = crc16(payload);
+
+            if (computedCrc !== receivedCrc) {
+                log(`?? CRC error`, 'vesc-response');
+                continue;
+            }
+
+            const cmd = payload[0];
+
+            if (cmd === 0x1C) {  // COMM_PRINT – text response from VESC
+                const textPart = payload.slice(1);
+                try {
+                    let text = new TextDecoder().decode(textPart);
+                    // Clean up non-printable but keep newlines
+                    text = text.replace(/[^\x20-\x7E\n\r\t]/g, '');
+                    if (text.trim()) {
+                        showVescResponse(text);
+                    }
+                } catch (e) {
+                    // ignore binary data
+                }
+            } else if (cmd === 0x04) {
+                // Telemetry packet – optionally parse, but for terminal we ignore
+                // You can add parsing if you want to show RPM etc.
+                // For terminal focus, just note it
+                // log("[Telemetry packet received]", 'vesc-response');
+            } else {
+                // Unknown command – try to show as text if printable
+                try {
+                    const textPart = payload.slice(1);
+                    let text = new TextDecoder().decode(textPart);
+                    text = text.replace(/[^\x20-\x7E\n\r\t]/g, '');
+                    if (text.trim()) showVescResponse(text);
+                } catch (e) {}
+            }
+        }
+    }
+
+    // ---------- Connect to VESC via BLE ----------
+    async function connectVESC() {
+        if (!navigator.bluetooth) {
+            log("? Web Bluetooth not supported. Use Chrome/Edge on HTTPS or localhost.", 'vesc-response');
+            return;
+        }
+
+        try {
+            statusSpan.textContent = "Connecting...";
+            const device = await navigator.bluetooth.requestDevice({
+                acceptAllDevices: true,
+                optionalServices: [
+                    '6e400001-b5a3-f393-e0a9-e50e24dcca9e',
+                    '0000ffe0-0000-1000-8000-00805f9b34fb'
+                ]
+            });
+            const server = await device.gatt.connect();
+            const services = await server.getPrimaryServices();
+            let notifyChar = null;
+            let writeCandidate = null;
+
+            for (const s of services) {
+                const chars = await s.getCharacteristics();
+                for (const c of chars) {
+                    if (c.properties.notify) notifyChar = c;
+                    if (c.properties.write || c.properties.writeWithoutResponse) writeCandidate = c;
+                }
+            }
+
+            if (!writeCandidate) throw new Error("No writable characteristic");
+            writeChar = writeCandidate;
+
+            if (notifyChar) {
+                await notifyChar.startNotifications();
+                notifyChar.addEventListener('characteristicvaluechanged', (event) => {
+                    const data = new Uint8Array(event.target.value.buffer);
+                    processReceivedData(data);
+                });
+            } else {
+                log("?? No notify characteristic – can't receive responses", 'vesc-response');
+            }
+
+            isConnected = true;
+            statusSpan.textContent = "Connected";
+            log("? Connected to VESC. Type commands below.", 'vesc-response');
+        } catch (err) {
+            statusSpan.textContent = "Disconnected";
+            log(`? Connection error: ${err.message}`, 'vesc-response');
+        }
+    }
+
+    // ---------- Event handlers ----------
+    connectBtn.addEventListener('click', connectVESC);
+
+    async function sendCurrent() {
+        const text = inputField.value.trim();
+        if (!text) return;
+        await sendTextToVESC(text);
+        inputField.value = '';
+    }
+
+    sendBtn.addEventListener('click', sendCurrent);
+    inputField.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') sendCurrent();
+    });
+</script>
+</body>
+</html>
