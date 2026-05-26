@@ -191,7 +191,7 @@ async function connect() {
         var notifyChar = await service.getCharacteristic(TX_UUID);
         await notifyChar.startNotifications();
         notifyChar.addEventListener('characteristicvaluechanged', handleNotification);
-        statusEl.textContent = "Connected VESC";
+        statusEl.textContent = "Connected VESC+GPS";
         log("Connected to VESC");
         startTelemetry();
     } catch(e) { log("CONNECT ERROR: " + e.message); }
