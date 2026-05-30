@@ -731,15 +731,15 @@ button.compliance-btn.active{
 
         <div style="display:flex;gap:10px;">
             <button class="compliance-btn active" id="btn-track-line" onclick="setTrackStyle('line')" style="text-align:center;">
-                — Line
+                â€” Line
             </button>
             <button class="compliance-btn" id="btn-track-dots" onclick="setTrackStyle('dots')" style="text-align:center;">
-                ••• Dots
+                â€¢â€¢â€¢ Dots
             </button>
         </div>
 
         <button class="compliance-btn" id="btn-gpx" onclick="exportGPX()" style="text-align:center;margin-top:4px;">
-            ? Export GPX (Strava)
+            â¬‡ Export GPX (Strava)
         </button>
 
         <!-- TERMINAL -->
@@ -831,7 +831,7 @@ function exportGPX(){
     }
     var now = new Date();
     var name = 'CaliBike-' + now.toISOString().slice(0,10);
-    var xml = '\x3C?xml version="1.0" encoding="UTF-8"?>\n';
+    var xml = '<?xml version="1.0" encoding="UTF-8"' + '?>' + '\n';
     xml += '<gpx version="1.1" creator="CaliBike Dashboard" xmlns="http://www.topografix.com/GPX/1/1">\n';
     xml += '  <metadata><name>' + name + '</name><time>' + now.toISOString() + '</time></metadata>\n';
     xml += '  <trk><name>' + name + '</name><trkseg>\n';
