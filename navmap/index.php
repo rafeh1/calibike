@@ -131,33 +131,32 @@ button{
 }
 
 button.compliance-btn{
-    display:block;
-    width:100%;
-    background:#333;
-    color:#aaa;
-    border:3px solid #555;
-    border-radius:12px;
-    padding:16px 20px;
-    font-size:16px;
-    font-weight:bold;
-    text-align:left;
-    cursor:pointer;
-    outline:none;
-    box-shadow:none;
-    transition: background 0.3s, border-color 0.3s, color 0.3s, box-shadow 0.3s;
+    display:block !important;
+    width:100% !important;
+    background:#333 !important;
+    color:#fff !important;
+    border:3px solid #888 !important;
+    border-radius:12px !important;
+    padding:14px 20px !important;
+    font-size:16px !important;
+    font-weight:bold !important;
+    text-align:left !important;
+    cursor:pointer !important;
+    outline:none !important;
+    box-shadow:none !important;
+    transition: background 0.3s, border-color 0.3s, box-shadow 0.3s !important;
 }
 
 button.compliance-btn:hover{
-    border-color:#aaa;
-    background:#444;
-    color:#fff;
+    border-color:#aaa !important;
+    background:#444 !important;
 }
 
 button.compliance-btn.active{
-    background:#1db954;
-    border-color:#1db954;
-    color:#fff;
-    box-shadow: 0 0 12px #1db954;
+    background:#1db954 !important;
+    border-color:#1db954 !important;
+    color:#fff !important;
+    box-shadow: 0 0 12px #1db954 !important;
 }
 
 /* SETTINGS TERMINAL */
@@ -403,7 +402,11 @@ button.compliance-btn.active{
     max-width:33.3%;
     text-align:center;
     padding:0 2px;
-    overflow:hidden;
+    overflow:visible;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
 }
 
 .hud-title{
@@ -416,15 +419,15 @@ button.compliance-btn.active{
 }
 
 .hud-value{
-    font-size:22px;
+    font-size:33px;
     font-weight:bold;
     color:orange;
     white-space:nowrap;
-    overflow:hidden;
+    overflow:visible;
 }
 
 .small-unit{
-    font-size:13px;
+    font-size:20px;
     color:white;
     opacity:0.9;
 }
@@ -472,56 +475,58 @@ button.compliance-btn.active{
     #hud-overlay {
         width: 98%;
         height: auto;
-        max-height: 62vh;
-        padding: 6px 8px max(8px, env(safe-area-inset-bottom, 8px)) 8px;
+        padding: 10px 8px;
         bottom: max(120px, env(safe-area-inset-bottom, 120px));
         flex-direction: column;
         align-items: stretch;
         border-radius: 18px;
-        overflow-y: visible;
-    }
-
-    /* SPEED */
-
-    #hud-speed-circle {
-        width: 85px;
-        height: 85px;
-        border-width: 7px;
-        margin: 0 auto 6px auto;
-    }
-
-    .hud-speed-label {
-        font-size: 11px;
-        margin-bottom: 1px;
-    }
-
-    .hud-speed-value {
-        font-size: 30px;
-    }
-
-    .hud-speed-unit {
-        font-size: 14px;
-    }
-
-    /* MAIN */
-
-    #hud-main {
-        width: 100%;
     }
 
     .hud-row {
         display: grid;
-        grid-template-columns: repeat(3,1fr);
-        gap: 4px;
-    }
-
-    .hud-divider {
-        margin: 4px 0;
+        grid-template-columns: 1fr 1fr 1fr;
+        gap: 2px;
+        width: 100%;
     }
 
     .hud-box {
+        display: flex !important;
+        flex-direction: column !important;
+        align-items: center !important;
+        justify-content: center !important;
+        text-align: center !important;
+        padding: 4px 2px;
         min-width: 0;
-        padding: 4px 1px;
+        max-width: none !important;
+        flex: none !important;
+        overflow: visible;
+    }
+
+    .hud-title {
+        font-size: 10px;
+        margin-bottom: 2px;
+        white-space: nowrap;
+        overflow: visible;
+    }
+
+    .hud-value {
+        font-size: 18px;
+        white-space: nowrap;
+        overflow: visible;
+    }
+
+    .small-unit {
+        font-size: 11px;
+    }
+
+    .hud-divider {
+        margin: 6px 0;
+    }
+
+    .hud-box {
+        text-align: center;
+        padding: 4px 2px;
+        min-width: 0;
     }
 
     .hud-title {
@@ -530,11 +535,34 @@ button.compliance-btn.active{
     }
 
     .hud-value {
-        font-size: 18px;
+        font-size: 22px;
     }
 
     .small-unit {
+        font-size: 13px;
+    }
+
+    .hud-speed-label {
         font-size: 11px;
+    }
+
+    .hud-speed-value {
+        font-size: 32px;
+        font-weight: bold;
+    }
+
+    .hud-speed-unit {
+        font-size: 14px;
+    }
+
+    #connectBtn {
+        width: 44px;
+        height: 44px;
+    }
+
+    #lkulBtn {
+        width: 44px;
+        height: 44px;
     }
 
     /* SIDEBAR */
@@ -580,107 +608,92 @@ button.compliance-btn.active{
 
     <div id="hud-overlay">
 
-        <!-- SPEED -->
+        <!-- ROW 1: BLE / Speed / Unlock -->
+        <div class="hud-row">
 
-        <div id="hud-speed-wrap">
-
-            <!-- CONNECT CIRCLE (left of speed) -->
-            <div id="connect-col">
+            <div class="hud-box">
                 <button id="connectBtn" title="Connect to VESC"></button>
                 <div class="hud-title" id="status">BLE</div>
             </div>
 
-            <div id="hud-speed-circle">
-
-                <div id="speed-inner">
-                    <div class="hud-speed-label">Speed</div>
-                    <div class="hud-speed-value"><span id="hud_speed">0.0</span></div>
-                    <div class="hud-speed-unit">mph</div>
-                </div>
-
+            <div class="hud-box">
+                <div class="hud-title">Speed</div>
+                <div class="hud-value" style="color:white;"><span id="hud_speed">0.0</span></div>
+                <div class="hud-title">mph</div>
             </div>
 
-            <!-- LK/UL BUTTON (right of speed) -->
-            <div id="lkul-col">
+            <div class="hud-box">
                 <button id="lkulBtn" title="Lock / Unlock">UL</button>
                 <div class="hud-title" id="lkul-status">Unlocked</div>
             </div>
 
         </div>
 
-        <!-- MAIN -->
+        <div class="hud-divider"></div>
 
-        <div id="hud-main">
+        <!-- ROW 2: Volt / Amps / Watts -->
+        <div class="hud-row">
 
-            <!-- LINE 1: Volt / Amps / Watts -->
-
-            <div class="hud-row">
-
-                <div class="hud-box">
-                    <div class="hud-title">Voltage</div>
-                    <div class="hud-value">
-                        <span id="hud_volt">0.0</span>
-                        <span class="small-unit">V</span>
-                    </div>
+            <div class="hud-box">
+                <div class="hud-title">Voltage</div>
+                <div class="hud-value">
+                    <span id="hud_volt">0.0</span>
+                    <span class="small-unit">V</span>
                 </div>
-
-                <div class="hud-box">
-                    <div class="hud-title">Amps</div>
-                    <div class="hud-value">
-                        <span id="hud_amps">0.0</span>
-                        <span class="small-unit">A</span>
-                    </div>
-                </div>
-
-                <div class="hud-box">
-                    <div class="hud-title">Watts</div>
-                    <div class="hud-value">
-                        <span id="hud_watts">0</span>
-                        <span class="small-unit">W</span>
-                    </div>
-                </div>
-
             </div>
 
-            <!-- DIVIDER -->
-
-            <div class="hud-divider"></div>
-
-            <!-- LINE 2: Temp / Max Speed / Dist -->
-
-            <div class="hud-row">
-
-                <div class="hud-box">
-                    <div class="hud-title">Temp</div>
-                    <div class="hud-value">
-                        <span id="hud_temp">0</span>
-                        <span class="small-unit">&deg;C</span>
-                    </div>
+            <div class="hud-box">
+                <div class="hud-title">Amps</div>
+                <div class="hud-value">
+                    <span id="hud_amps">0.0</span>
+                    <span class="small-unit">A</span>
                 </div>
-
-                <div class="hud-box">
-                    <div class="hud-title">Max Speed</div>
-                    <div class="hud-value">
-                        <span id="hud_max">0</span>
-                        <span class="small-unit">mph</span>
-                    </div>
-                </div>
-
-                <div class="hud-box">
-                    <div class="hud-title">Distance</div>
-                    <div class="hud-value">
-                        <span id="hud_dist">0.0</span>
-                        <span class="small-unit">mi</span>
-                    </div>
-                </div>
-
             </div>
 
-            <!-- SETTINGS BUTTON -->
-            <div style="text-align:center;margin-top:6px;">
-                <button id="settings-btn" onclick="openSettings()">&#9881; Settings</button>
+            <div class="hud-box">
+                <div class="hud-title">Watts</div>
+                <div class="hud-value">
+                    <span id="hud_watts">0</span>
+                    <span class="small-unit">W</span>
+                </div>
             </div>
 
+        </div>
+
+        <div class="hud-divider"></div>
+
+        <!-- ROW 3: Temp / Max Speed / Dist -->
+        <div class="hud-row">
+
+            <div class="hud-box">
+                <div class="hud-title">Temp</div>
+                <div class="hud-value">
+                    <span id="hud_temp">0</span>
+                    <span class="small-unit">&deg;C</span>
+                </div>
+            </div>
+
+            <div class="hud-box">
+                <div class="hud-title">Max Speed</div>
+                <div class="hud-value">
+                    <span id="hud_max">0</span>
+                    <span class="small-unit">mph</span>
+                </div>
+            </div>
+
+            <div class="hud-box">
+                <div class="hud-title">Distance</div>
+                <div class="hud-value">
+                    <span id="hud_dist">0.0</span>
+                    <span class="small-unit">mi</span>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- SETTINGS BUTTON -->
+        <div style="text-align:center;margin-top:6px;">
+            <button id="settings-btn" onclick="openSettings()">&#9881; Settings</button>
         </div>
 
     </div>
@@ -831,7 +844,8 @@ function exportGPX(){
     }
     var now = new Date();
     var name = 'CaliBike-' + now.toISOString().slice(0,10);
-    var xml = '\x3C?xml version="1.0" encoding="UTF-8"?>\n';
+    var lt = '<';
+    var xml = lt + '?xml version="1.0" encoding="UTF-8"?' + '>' + '\n';
     xml += '<gpx version="1.1" creator="CaliBike Dashboard" xmlns="http://www.topografix.com/GPX/1/1">\n';
     xml += '  <metadata><name>' + name + '</name><time>' + now.toISOString() + '</time></metadata>\n';
     xml += '  <trk><name>' + name + '</name><trkseg>\n';
