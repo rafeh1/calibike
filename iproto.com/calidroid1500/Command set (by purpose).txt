@@ -1,0 +1,148 @@
+Command set (by purpose)
+1) Waypoints & navigation
+
+WP https://maps.google.com/?q=<lat>,<lon>
+Adds/sets the current waypoint.
+Example: WP https://maps.google.com/?q=33.9235,-118.3315
+
+WP <lat>,<lon>
+Same as above, shorthand without a link.
+Example: WP 33.9235,-118.3315
+
+WPNAME <free text>
+Optional label for the current waypoint.
+Example: WPNAME LAX Departures
+
+CANCEL
+Clears the active waypoint and stops nav.
+
+REPEAT
+Re-sends the last nav instruction to Arduino.
+
+NEXT
+(If we later support a queue) advance to next waypoint.
+
+Note: For reliability we’ll start with lat,lon only (no address geocoding). We can add address → lat/lon later if needed.
+
+2) Turn/drive commands (manual override)
+
+Perfect for quick/manual control or testing. These are relayed over USB as-is.
+
+LEFT
+
+RIGHT
+
+STRAIGHT
+
+BACK
+
+HALT
+
+(Arduino sees exactly these tokens + newline.)
+
+3) Queries (the app replies by SMS)
+
+WHERE
+Replies with a Google Maps link to the phone’s current GPS fix:
+
+OK WHERE <https://maps.google.com/?q=<lat>,<lon>>
+
+STATUS
+Replies with concise status:
+
+USB link (connected/disconnected), baud, newline mode
+
+Active waypoint (lat,lon + name if set)
+
+Last command sent / flow-control state
+
+Example reply:
+OK STATUS USB=CONNECTED 19200 CRLF; WP=33.9235,-118.3315[LAX Departures]; MODE=AUTO
+
+PING
+Quick health check.
+
+Reply: OK PONG
+
+4) Configuration (by SMS)
+
+AUTH+ +1XXXXXXXXXX
+Add an authorized sender.
+
+AUTH- +1XXXXXXXXXX
+Remove an authorized sender.
+
+SET MODE AUTO | SET MODE MANUAL
+
+AUTO: Nav loop generates LEFT/RIGHT/STRAIGHT to Arduino.
+
+MANUAL: Only forward explicit SMS commands.
+
+SET BAUD <rate>
+Example: SET BAUD 19200
+
+SET NL CRLF | SET NL LF
+Set newline appended to USB writes.
+
+SET HOME <lat>,<lon>
+Optional “home” reference point.
+
+SET RETRY <seconds>
+SMS retry/backoff for failed sends (e.g., satellite text fallback flows later).
+
+ECHO ON | ECHO OFF
+Include reflected commands in SMS replies (debug).
+
+5) Acknowledgements & errors (what you’ll see back)
+
+Success:
+
+OK <COMMAND> [details]
+
+Examples:
+
+OK WP 33.9235,-118.3315
+
+OK LEFT
+
+OK SET MODE AUTO
+
+Errors:
+
+ERR UNAUTHORIZED (not in whitelist)
+
+ERR BAD_FORMAT (couldn’t parse)
+
+ERR NO_GPS (WHERE requested but no fix)
+
+ERR USB_DOWN (can’t talk to Arduino)
+
+What Arduino will receive over USB
+
+(One line per command, newline at end.)
+
+LEFT / RIGHT / STRAIGHT / BACK / HALT
+
+WAYPOINT:<lat>,<lon>
+
+MODE:AUTO or MODE:MANUAL
+
+PING
+
+REQ:STATUS
+
+(We can keep it this simple so your sketch is tiny.)
+
+Quick test flow (once SMS hook is in)
+
+From an authorized phone:
+AUTH+ +1YOURPHONE (only needed once)
+
+Set a waypoint:
+WP 33.9235,-118.3315
+
+Ask where the phone is:
+WHERE
+
+Manual override:
+LEFT, RIGHT, HALT

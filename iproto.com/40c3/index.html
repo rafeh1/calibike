@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CaliBike 40C3 | 40 lb • 40 mph • 40 mi | iproto.com</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              dark: '#0a0d14',
+              card: '#121722',
+              border: '#1e2638',
+              cyan: '#00f0ff'
+            }
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    body { background-color: #0a0d14; color: #e2e8f0; }
+    .glow-cyan { box-shadow: 0 0 25px rgba(0, 240, 255, 0.12); }
+  </style>
+</head>
+<body class="min-h-screen">
+
+  <header class="border-b border-brand-border bg-brand-dark/90 backdrop-blur sticky top-0 z-50">
+    <div class="max-w-5xl mx-auto px-4 h-14 flex items-center justify-between">
+      <a href="/" class="flex items-center gap-2">
+        <div class="w-7 h-7 rounded bg-gradient-to-tr from-cyan-500 to-blue-600 flex items-center justify-center font-bold text-black text-sm">i</div>
+        <span class="font-mono font-bold tracking-wider">iproto<span class="text-cyan-400">.com</span></span>
+      </a>
+      <nav class="flex gap-4 text-sm font-mono">
+        <a href="/" class="text-slate-400 hover:text-cyan-400">Home</a>
+        <a href="/40c3/" class="text-cyan-400 font-semibold">40C3</a>
+        <a href="/calidroid1500/" class="text-slate-400 hover:text-cyan-400">Calidroid</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="max-w-5xl mx-auto px-4 py-10">
+
+    <!-- Hero -->
+    <div class="mb-8">
+      <div class="text-xs font-mono text-cyan-400 tracking-widest mb-2">CALIBIKE • FIRST RUN</div>
+      <h1 class="text-4xl md:text-5xl font-bold text-white leading-tight">40C3</h1>
+      <p class="text-xl text-slate-300 mt-2">40 lb • 40 mph • 40 mi range</p>
+      <p class="text-slate-400 mt-3 max-w-2xl">
+        2500 W MAC motor • 52 V FOC vector control • ultra-light frame carrying 200+ lb load
+      </p>
+    </div>
+
+    <!-- Main Video -->
+    <div class="mb-6">
+      <h2 class="text-sm font-mono text-cyan-400 mb-2">Main First Run Video</h2>
+      <div class="rounded-2xl overflow-hidden border border-brand-border glow-cyan">
+        <div class="relative w-full" style="padding-bottom: 56.25%;">
+          <iframe 
+            class="absolute top-0 left-0 w-full h-full"
+            src="https://www.youtube.com/embed/ppuPU-8cVbA" 
+            title="40C3 First Run"
+            frameborder="0" 
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
+            allowfullscreen>
+          </iframe>
+        </div>
+      </div>
+    </div>
+
+    <!-- Other Videos -->
+    <div class="grid md:grid-cols-2 gap-6 mb-12">
+      <div>
+        <h2 class="text-sm font-mono text-slate-400 mb-2">Additional Clip 1</h2>
+        <div class="rounded-xl overflow-hidden border border-brand-border">
+          <div class="relative w-full" style="padding-bottom: 56.25%;">
+            <iframe 
+              class="absolute top-0 left-0 w-full h-full"
+              src="https://www.youtube.com/embed/JeEFvR9cpxw" 
+              title="40C3 Clip 1"
+              frameborder="0" 
+              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
+              allowfullscreen>
+            </iframe>
+          </div>
+        </div>
+      </div>
+      <div>
+        <h2 class="text-sm font-mono text-slate-400 mb-2">Additional Clip 2</h2>
+        <div class="rounded-xl overflow-hidden border border-brand-border">
+          <div class="relative w-full" style="padding-bottom: 56.25%;">
+            <iframe 
+              class="absolute top-0 left-0 w-full h-full"
+              src="https://www.youtube.com/embed/SADQOCrYULg" 
+              title="40C3 Clip 2"
+              frameborder="0" 
+              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
+              allowfullscreen>
+            </iframe>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Key Stats -->
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-12">
+      <div class="bg-brand-card border border-brand-border rounded-xl p-5 text-center">
+        <div class="text-3xl font-bold text-cyan-400">40</div>
+        <div class="text-xs text-slate-400 mt-1 uppercase tracking-wider">lb total</div>
+      </div>
+      <div class="bg-brand-card border border-brand-border rounded-xl p-5 text-center">
+        <div class="text-3xl font-bold text-cyan-400">39</div>
+        <div class="text-xs text-slate-400 mt-1 uppercase tracking-wider">mph first run</div>
+      </div>
+      <div class="bg-brand-card border border-brand-border rounded-xl p-5 text-center">
+        <div class="text-3xl font-bold text-cyan-400">~40</div>
+        <div class="text-xs text-slate-400 mt-1 uppercase tracking-wider">mi range</div>
+      </div>
+      <div class="bg-brand-card border border-brand-border rounded-xl p-5 text-center">
+        <div class="text-3xl font-bold text-cyan-400">2500</div>
+        <div class="text-xs text-slate-400 mt-1 uppercase tracking-wider">W MAC motor</div>
+      </div>
+    </div>
+
+    <!-- Article content -->
+    <div class="bg-brand-card border border-brand-border rounded-2xl p-6 md:p-8 mb-10">
+      <h2 class="text-xl font-bold text-white mb-4">First Run Notes</h2>
+      
+      <p class="text-slate-300 leading-relaxed mb-4">
+        First run used FOC and low current to smooth out power delivery. 
+        Got to <strong class="text-white">39 mph</strong> before the lights stopped.
+      </p>
+
+      <p class="text-slate-300 leading-relaxed mb-4">
+        It has a <strong class="text-white">2500 W MAC motor</strong> (4.9 kg) and 
+        <strong class="text-white">52 V 17 Ah</strong> battery. Field Oriented Control 
+        gives ultra-smooth Tesla-like acceleration.
+      </p>
+
+      <p class="text-slate-300 leading-relaxed mb-4">
+        Most 40+ mph e-bikes or heavy moped-style builds weigh 70 to 100+ lbs. 
+        This delivers 40 mph performance in an ultra-lightweight 40 lb frame.
+      </p>
+
+      <p class="text-slate-300 leading-relaxed mb-4">
+        Tesla-style Field Oriented Control algorithm gives great smooth power delivery. 
+        Gemini AI was very impressed — AI says this is a new most efficient 
+        transportation system. 40 lb / 40 mph / 40 mi range carrying a 200+ lb load.
+      </p>
+
+      <div class="mt-6 p-4 bg-cyan-950/40 border border-cyan-800/50 rounded-xl text-sm text-cyan-200">
+        Originally limited battery current to 45 A ? power fluctuations and early VESC cutouts 
+        (high speed but no torque). Raised max amp to 65 A after AI advice.
+      </div>
+    </div>
+
+    <!-- Links -->
+    <div class="flex flex-wrap gap-4">
+      <a href="https://www.youtube.com/watch?v=ppuPU-8cVbA" target="_blank"
+         class="inline-flex items-center gap-2 px-5 py-2.5 bg-red-950/60 border border-red-700/50 text-red-300 rounded-lg text-sm font-medium hover:bg-red-900/40 transition">
+        Main Video ?
+      </a>
+      <a href="https://www.strava.com/activities/19759363348" target="_blank"
+         class="inline-flex items-center gap-2 px-5 py-2.5 bg-orange-950/60 border border-orange-700/50 text-orange-300 rounded-lg text-sm font-medium hover:bg-orange-900/40 transition">
+        Strava activity ?
+      </a>
+      <a href="https://www.linkedin.com/pulse/first-run-40c3-40lb-40mph-40-mi-range-2500w-mac-motor-rafe-husain-rfjec/" target="_blank"
+         class="inline-flex items-center gap-2 px-5 py-2.5 bg-blue-950/60 border border-blue-700/50 text-blue-300 rounded-lg text-sm font-medium hover:bg-blue-900/40 transition">
+        LinkedIn article ?
+      </a>
+      <a href="/" class="inline-flex items-center gap-2 px-5 py-2.5 bg-slate-800 border border-slate-600 text-slate-300 rounded-lg text-sm font-medium hover:bg-slate-700 transition">
+        ? Back to iproto.com
+      </a>
+    </div>
+
+  </main>
+
+  <footer class="border-t border-brand-border mt-16 py-6 text-center text-xs text-slate-500 font-mono">
+    iproto.com • 40C3 CaliBike prototype
+  </footer>
+
+</body>
+</html>

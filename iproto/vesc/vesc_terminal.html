@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>VESC Terminal – with 'status' command</title>
+<style>
+body {
+    background:#1e1e1e;
+    font-family:Courier New;
+    margin:0;
+    padding:20px;
+    color:#0f0;
+}
+#terminal {
+    background:#000;
+    color:#0f0;
+    height:650px;
+    overflow-y:scroll;
+    padding:12px;
+    border:1px solid #333;
+    white-space:pre-wrap;
+}
+.input-line {
+    margin-top:10px;
+    display:flex;
+    gap:10px;
+}
+#input {
+    flex:1;
+    background:#111;
+    color:#0f0;
+    border:1px solid #444;
+    padding:10px;
+}
+button {
+    background:#222;
+    color:#0f0;
+    border:1px solid #0f0;
+    padding:10px 20px;
+    cursor:pointer;
+}
+.hex {
+    color:#888;
+    font-size:12px;
+}
+</style>
+</head>
+
+<body>
+<button id="connectBtn">Connect to VESC R2</button> <span id="status">Disconnected</span>
+<div id="terminal">VESC BLE terminal ready. Type "status" for real‑time data.<br>=============================================<br></div>
+<div class="input-line"><input type="text" id="input" placeholder="Type command (e.g. status)" autocomplete="off"><button id="sendBtn">Send</button></div>
+
+<script>
+let writeChar = null;
+let rxBuffer = [];
+let currentTelemetryHandler = null;   // ← temporary handler for GET_VALUES response
+
+const SERVICE_UUID = '6e400001-b5a3-f393-e0a9-e50e24dcca9e';
+const RX_UUID     = '6e400002-b5a3-f393-e0a9-e50e24dcca9e';
+const TX_UUID     = '6e400003-b5a3-f393-e0a9-e50e24dcca9e';
+
+const terminal = document.getElementById('terminal');
+const inputEl = document.getElementById('input');
+const statusEl = document.getElementById('status');
+
+function log(text, cls='') {
+    const div = document.createElement('div');
+    div.textContent = text;
+    if (cls) div.className = cls;
+    terminal.appendChild(div);
+    terminal.scrollTop = terminal.scrollHeight;
+}
+
+function logHex(data, prefix='') {
+    const hex = Array.from(data).map(b => b.toString(16).padStart(2,'0')).join(' ');
+    log(prefix + ' ' + hex, 'hex');
+}
+
+// ---------- CRC16 (starts at 0x0000) ----------
+function crc16(buffer) {
+    let crc = 0x0000;
+    for (let i = 0; i < buffer.length; i++) {
+        crc ^= (buffer[i] << 8);
+        for (let j = 0; j < 8; j++) {
+            if (crc & 0x8000) {
+                crc = (crc << 1) ^ 0x1021;
+            } else {
+                crc <<= 1;
+            }
+        }
+    }
+    return crc & 0xFFFF;
+}
+
+// ---------- Build VESC packet ----------
+function buildPacket(payload) {
+    const len = payload.length;
+    const packet = new Uint8Array(len + 5);
+    packet[0] = 0x02;
+    packet[1] = len;
+    packet.set(payload, 2);
+    const crc = crc16(payload);
+    packet[len + 2] = (crc >> 8) & 0xFF;
+    packet[len + 3] = crc & 0xFF;
+    packet[len + 4] = 0x03;
+    return packet;
+}
+
+// ---------- NEW: Parse binary COMM_GET_VALUES response ----------
+function parseTelemetryResponse(dataBytes) {
+    // dataBytes is the whole payload (command byte + data)
+    // command byte is dataBytes[0], we expect 0x04
+    if (dataBytes.length < 33) return null;   // not enough data for full telemetry
+
+    const dv = new DataView(dataBytes.buffer);
+    let offset = 1;   // skip command byte
+
+    const tempMosfet = dv.getInt16(offset) / 10;   offset += 2;
+    const tempMotor  = dv.getInt16(offset) / 10;   offset += 2;
+    const currentMotor = dv.getFloat32(offset);    offset += 4;
+    const currentIn    = dv.getFloat32(offset);    offset += 4;
+    const dutyNow      = dv.getInt16(offset) / 1000; offset += 2;
+    const rpm          = dv.getInt32(offset);      offset += 4;
+    const inputVoltage = dv.getInt16(offset) / 10; offset += 2;
+    const ampHours     = dv.getFloat32(offset);    offset += 4;
+    const ampHoursCharged = dv.getFloat32(offset); offset += 4;
+    const wattHours    = dv.getFloat32(offset);    offset += 4;
+    const wattHoursCharged = dv.getFloat32(offset); offset += 4;
+    const tachometer   = dv.getInt32(offset);      offset += 4;
+    const tachometerAbs= dv.getInt32(offset);      offset += 4;
+    const faultCode    = dv.getInt16(offset);      offset += 2;
+    // (position, id, iq, etc. would follow if needed)
+
+    return {
+        tempMosfet, tempMotor, currentMotor, currentIn, dutyNow,
+        rpm, inputVoltage, ampHours, ampHoursCharged, wattHours,
+        wattHoursCharged, tachometer, tachometerAbs, faultCode
+    };
+}
+
+// ---------- Send a binary command with optional callback for its reply ----------
+async function sendBinaryCommand(payload, onReply) {
+    if (!writeChar) {
+        log('Not connected');
+        return false;
+    }
+    if (onReply) {
+        // store callback to be called when a matching packet arrives
+        currentTelemetryHandler = onReply;
+    }
+    const packet = buildPacket(payload);
+    logHex(packet, 'SEND (binary)');
+    try {
+        for (let i = 0; i < packet.length; i += 20) {
+            const chunk = packet.slice(i, i + 20);
+            await writeChar.writeValueWithoutResponse(chunk);
+            await new Promise(r => setTimeout(r, 10));
+        }
+        return true;
+    } catch (err) {
+        log('SEND ERROR: ' + err.message);
+        return false;
+    }
+}
+
+// ---------- Handle user text command ----------
+async function sendTextCommand(text) {
+    const encoder = new TextEncoder();
+    const textBytes = encoder.encode(text);
+    // Use COMM_TERMINAL_CMD = 0x14
+    const payload = new Uint8Array([0x14, ...textBytes]);
+    const packet = buildPacket(payload);
+    logHex(packet, 'SEND (text)');
+    try {
+        for (let i = 0; i < packet.length; i += 20) {
+            const chunk = packet.slice(i, i + 20);
+            await writeChar.writeValueWithoutResponse(chunk);
+            await new Promise(r => setTimeout(r, 10));
+        }
+        log('> ' + text);
+    } catch (err) {
+        log('SEND ERROR: ' + err.message);
+    }
+}
+
+// ---------- Send 'status' command (binary GET_VALUES) ----------
+async function sendStatusCommand() {
+    // COMM_GET_VALUES = 0x04, no additional data
+    const payload = new Uint8Array([0x04]);
+    await sendBinaryCommand(payload, (telemetry) => {
+        // Show formatted telemetry
+        log('--- Real‑time Telemetry ---');
+        log(`⚡ Input Voltage:  ${telemetry.inputVoltage.toFixed(2)} V`);
+        log(`🔄 Motor RPM:      ${telemetry.rpm}`);
+        log(`⚙️ Duty Cycle:      ${(telemetry.dutyNow * 100).toFixed(1)}%`);
+        log(`🔁 Motor Current:   ${telemetry.currentMotor.toFixed(2)} A`);
+        log(`🔋 Input Current:   ${telemetry.currentIn.toFixed(2)} A`);
+        log(`🌡️ MOSFET Temp:     ${telemetry.tempMosfet.toFixed(1)} °C`);
+        log(`🔥 Motor Temp:       ${telemetry.tempMotor.toFixed(1)} °C`);
+        log(`📊 Amp Hours:       ${telemetry.ampHours.toFixed(2)} Ah`);
+        log(`🔋 Amp Hours Charged: ${telemetry.ampHoursCharged.toFixed(2)} Ah`);
+        log(`⚡ Watt Hours:      ${telemetry.wattHours.toFixed(2)} Wh`);
+        log(`🔋 Watt Hours Charged: ${telemetry.wattHoursCharged.toFixed(2)} Wh`);
+        log(`📈 Tachometer:      ${telemetry.tachometer}`);
+        log(`⚠️ Fault Code:       ${telemetry.faultCode} (0 = no fault)`);
+        log('----------------------------');
+    });
+}
+
+// ---------- BLE notification handler (unchanged) ----------
+function handleNotification(event) {
+    const chunk = new Uint8Array(event.target.value.buffer);
+    logHex(chunk, 'RECV');
+    for (let b of chunk) rxBuffer.push(b);
+    parsePackets();
+}
+
+function parsePackets() {
+    while (true) {
+        if (rxBuffer.length < 5) return;
+        while (rxBuffer.length > 0 && rxBuffer[0] !== 0x02) rxBuffer.shift();
+        if (rxBuffer.length < 5) return;
+
+        const len = rxBuffer[1];
+        const totalLen = len + 5;
+        if (rxBuffer.length < totalLen) return;
+
+        const packet = rxBuffer.slice(0, totalLen);
+        rxBuffer = rxBuffer.slice(totalLen);
+
+        if (packet[totalLen - 1] !== 0x03) {
+            log('Bad packet end');
+            continue;
+        }
+
+        const payload = packet.slice(2, 2 + len);
+        if (payload.length < 1) continue;
+
+        const cmd = payload[0];
+        const data = payload.slice(1);
+
+        log('CMD 0x' + cmd.toString(16));
+        logHex(data, 'DATA');
+
+        // --- Handle telemetry response (command 0x04) ---
+        if (cmd === 0x04 && currentTelemetryHandler) {
+            const telemetry = parseTelemetryResponse(payload);
+            if (telemetry) {
+                currentTelemetryHandler(telemetry);
+                currentTelemetryHandler = null;   // one‑shot callback
+            } else {
+                log('Failed to parse telemetry data');
+            }
+        }
+
+        // --- Decode text responses (command 0x14) ---
+        try {
+            const decoder = new TextDecoder();
+            const txt = decoder.decode(new Uint8Array(data));
+            if (txt.trim().length > 0) log('TXT: ' + txt.trim());
+        } catch(e) {
+            // not text, ignore
+        }
+    }
+}
+
+// ---------- Connect (unchanged) ----------
+async function connect() {
+    try {
+        log('Requesting VESC...');
+        const device = await navigator.bluetooth.requestDevice({
+            filters: [{ services: [SERVICE_UUID] }]
+        });
+        device.addEventListener('gattserverdisconnected', () => {
+            log('Disconnected');
+            statusEl.textContent = 'Disconnected';
+        });
+        const server = await device.gatt.connect();
+        log('Connected to GATT');
+        const service = await server.getPrimaryService(SERVICE_UUID);
+        writeChar = await service.getCharacteristic(RX_UUID);
+        const notifyChar = await service.getCharacteristic(TX_UUID);
+        await notifyChar.startNotifications();
+        notifyChar.addEventListener('characteristicvaluechanged', handleNotification);
+        statusEl.textContent = 'Connected';
+        log('VESC connected');
+    } catch(err) {
+        log('CONNECT ERROR: ' + err.message);
+    }
+}
+
+// ---------- Main input handler ----------
+async function handleInput() {
+    const cmd = inputEl.value.trim();
+    if (!cmd) return;
+
+    if (cmd.toLowerCase() === 'status') {
+        await sendStatusCommand();
+    } else {
+        await sendTextCommand(cmd);
+    }
+    inputEl.value = '';
+}
+
+window.addEventListener('DOMContentLoaded', () => {
+    document.getElementById('connectBtn').onclick = connect;
+    document.getElementById('sendBtn').onclick = handleInput;
+    inputEl.addEventListener('keypress', e => { if (e.key === 'Enter') handleInput(); });
+});
+</script>
+</body>
+</html>
