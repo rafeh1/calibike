@@ -1,0 +1,65 @@
+[
+    {
+        "id": "c_6af16d07e8fb59.83262798",
+        "provider": "Google",
+        "user_id": "linkedin.com/in/rafehusain/",
+        "comment": "www .calibike.com",
+        "image": null,
+        "created_at": "2026-11-08 23:49:43",
+        "ip_hash": "556dae8575c9b7d400e8f5aeda3d943e"
+    },
+    {
+        "id": "c_6af16cc99cca92.58262492",
+        "provider": "Google",
+        "user_id": "linkedin.com/in/rafehusain/",
+        "comment": "the high power under test is using less user cal than the 33c3 1500w ebike. the 33c3 was using 65k to 90k cal per mile. while the 40c3 is only taking 45 55k cal per mile. The problem is the front chainring gear has to be increased. the 33c3 had 60t front and 12t rear. vs the 40c3 has 58t front and 12t rear. So I ordered 65t front gear. lets see.",
+        "image": null,
+        "created_at": "2026-11-08 23:48:41",
+        "ip_hash": "556dae8575c9b7d400e8f5aeda3d943e"
+    },
+    {
+        "id": "c_6af167f5871083.45694152",
+        "provider": "Google",
+        "user_id": "rafeh1@gmail.com",
+        "comment": "Test comment from curl with my gmail rafeh1 id",
+        "image": null,
+        "created_at": "2026-11-08 23:28:05",
+        "ip_hash": "e75854ba3fcd7dcc4386602be8b2f894"
+    },
+    {
+        "id": "c_6af16799d1bb25.23048553",
+        "provider": "Google",
+        "user_id": "rafeh1@gmail.com",
+        "comment": "Sample curl test: 40C3 is running great at 65A FOC peak.",
+        "image": null,
+        "created_at": "2026-11-08 23:26:33",
+        "ip_hash": "f10b1efeb56354b854d99c251e2d6b68"
+    },
+    {
+        "id": "c_6af16532e35be7.67780361",
+        "provider": "Google",
+        "user_id": "linkedin.com/in/rafehusain",
+        "comment": "I had it severely underpowered by restricting. battery current to 45a.  power fluctuations cause vesc to shut power very early. so get high speed  but no torque.  so  get speed but no power on hills.  ai said try power  higher so I set max amp to 120a phase",
+        "image": null,
+        "created_at": "2026-11-08 23:16:18",
+        "ip_hash": "556dae8575c9b7d400e8f5aeda3d943e"
+    },
+    {
+        "id": "c_6af15f19945c13.82675917",
+        "provider": "Google",
+        "user_id": "rafeh1@gmail.com",
+        "comment": "FOC current limit tuned to 65A peak. High torque restored with zero wheel spinouts.",
+        "image": null,
+        "created_at": "2026-11-08 22:50:17",
+        "ip_hash": "57723fb2d996cd6a1129663086ca3867"
+    },
+    {
+        "id": "c_6af106d2a23829.04686896",
+        "provider": "Google",
+        "user_id": "rafeh1@gmail.com",
+        "comment": "Testing comment backend directly via SSH",
+        "image": null,
+        "created_at": "2026-11-08 16:33:38",
+        "ip_hash": "e75854ba3fcd7dcc4386602be8b2f894"
+    }
+]
