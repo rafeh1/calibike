@@ -3,26 +3,26 @@
  * iproto.com/audio-tracker/
  * Acoustic Drone Audio Tracker Platform
  */
-$page_title = 'Audio Tracker â€” Acoustic Drone Tracking Platform';
+$page_title = 'Audio Tracker — Acoustic Drone Tracking Platform';
 $page_desc  = '4-channel synchronous I2S MEMS microphone array with microsecond TDOA hardware timestamping on a Gowin FPGA and DoA beamforming on an ESP32-S3.';
 
 $specs = [
-    'Microphones'        => '4Ã— ICS-43434 I2S MEMS, 4-arm hub, arms at 30Â° elevation',
+    'Microphones'        => '4× ICS-43434 I2S MEMS, 4-arm hub, arms at 30° elevation',
     'Capture'            => '4 channels sampled synchronously (shared BCLK/WS from FPGA)',
-    'FPGA'               => 'Gowin GW1NSR-LV4C (LILYGO T-FPGA) â€” DSP macros + hard CPU',
+    'FPGA'               => 'Gowin GW1NSR-LV4C (LILYGO T-FPGA) — DSP macros + hard CPU',
     'Host MCU'           => 'ESP32-S3 (dual-core Xtensa LX7, 240 MHz)',
     'Sample rates'       => '48 kHz (tracking) / 16 kHz (detection)',
-    'Timing resolution'  => '~1 Âµs hardware timestamps (sample period 20.8 Âµs @ 48 kHz)',
+    'Timing resolution'  => '~1 µs hardware timestamps (sample period 20.8 µs @ 48 kHz)',
     'Data link'          => 'Quad SPI (SPI2, QIO half-duplex), FPGA as audio-FIFO slave',
-    'Control link'       => 'SPI3 3-wire, ESP32 master â†’ FPGA registers',
+    'Control link'       => 'SPI3 3-wire, ESP32 master ? FPGA registers',
     'Output'             => 'Azimuth + elevation, real-time to servo / gimbal',
 ];
 
 $chain = [
-    ['01', 'Capture',      'Four ICS-43434 mics share one BCLK/WS from the FPGA, so every channel is sampled on the same clock edge â€” zero inter-channel skew by design.'],
+    ['01', 'Capture',      'Four ICS-43434 mics share one BCLK/WS from the FPGA, so every channel is sampled on the same clock edge — zero inter-channel skew by design.'],
     ['02', 'Deserialize',  'Parallel I2S receivers in fabric unpack 24-bit samples from all four mics in lock-step, so each frame holds four time-aligned samples.'],
     ['03', 'Timestamp',    'A free-running counter latches a hardware timestamp on each frame and on onset events, giving microsecond-scale TDOA without software jitter.'],
-    ['04', 'Beam sweep',   'DSP blocks run a delay-and-sum sweep with half-sample delay steps â€” one summed beam per look direction instead of all six mic-pair combinations.'],
+    ['04', 'Beam sweep',   'DSP blocks run a delay-and-sum sweep with half-sample delay steps — one summed beam per look direction instead of all six mic-pair combinations.'],
     ['05', 'Transfer',     'Frames, timestamps and beam energies are batched into an audio FIFO and pulled by the ESP32-S3 over quad SPI.'],
     ['06', 'DoA estimate', 'The ESP32-S3 refines the peak with GCC-PHAT / TDOA least-squares to resolve azimuth and elevation.'],
     ['07', 'Track & act',  'Smoothed bearing drives a pan/tilt servo or gimbal and is streamed to the web dashboard.'],
@@ -34,16 +34,43 @@ $modes = [
 ];
 
 $photos = [
-    ['rev0.jpg',  'Rev 0',  'First prototype â€” 4-mic hub on the LILYGO T-FPGA.'],
+    ['rev0.jpg',  'Rev 0',  'First prototype — 4-mic hub on the LILYGO T-FPGA.'],
     ['rev0a.jpg', 'Rev 0a', 'Revised build.'],
 ];
 
-// Demo video: drop a file with this name into /audio-tracker/. Leave '' or
-// remove the file to hide the section. 'poster' is an optional still frame.
-$video = [
-    'file'    => 'demo.mp4',      // e.g. demo.mp4 or demo.webm
-    'poster'  => 'rev0.jpg',      // frame shown before play; '' for none
-    'caption' => 'Bench demo â€” the array picking up a drone and the gimbal following it.',
+// Videos grouped by use case. Missing files are skipped automatically.
+// Later: add a 'drone_attack' use case the same way.
+$use_cases = [
+    [
+        'id'    => 'bench',
+        'title' => 'Bench Demo',
+        'intro' => 'Lab validation — the array locks onto a drone and the gimbal follows the bearing in real time.',
+        'videos' => [
+            [
+                'file'    => 'demo.mp4',
+                'poster'  => 'rev0.jpg',
+                'caption' => 'Bench demo — array picking up a drone and gimbal following it.',
+            ],
+        ],
+    ],
+    [
+        'id'    => 'drone_defense',
+        'title' => 'Drone Defense',
+        'intro' => 'Outdoor field tests — acoustic detection and tracking of a small drone for counter-UAS / perimeter defense.',
+        'videos' => [
+            [
+                'file'    => 'drone_shoot1 (1).mp4',
+                'poster'  => 'rev0.jpg',
+                'caption' => 'Field shoot 1 — outdoor tracking pass.',
+            ],
+            [
+                'file'    => 'drone_shoot1 (2).mp4',
+                'poster'  => 'rev0.jpg',
+                'caption' => 'Field shoot 2 — second outdoor pass.',
+            ],
+        ],
+    ],
+    // Future: drone_attack use case goes here
 ];
 ?>
 <!DOCTYPE html>
@@ -118,7 +145,7 @@ $video = [
 <nav>
   <div class="wrap">
     <a class="brand" href="https://iproto.com/">iproto.com</a>
-    <a href="https://iproto.com/">â† Home</a>
+    <a href="https://iproto.com/">? Home</a>
     <span class="crumb">/ Audio Tracker</span>
   </div>
 </nav>
@@ -152,30 +179,45 @@ $video = [
     </div>
   </section>
 
-  <!-- ===== Demo video ===== -->
-  <?php if (!empty($video['file']) && is_file(__DIR__ . '/' . $video['file'])):
-      $ext = strtolower(pathinfo($video['file'], PATHINFO_EXTENSION));
-      $mime = $ext === 'webm' ? 'video/webm' : ($ext === 'ogg' ? 'video/ogg' : 'video/mp4'); ?>
-  <section>
-    <h2>Demo</h2>
-    <div class="panel video">
+  <!-- ===== Use-case videos ===== -->
+  <?php foreach ($use_cases as $case):
+      // Collect only videos that actually exist on disk
+      $available = [];
+      foreach ($case['videos'] as $v) {
+          if (!empty($v['file']) && is_file(__DIR__ . '/' . $v['file'])) {
+              $available[] = $v;
+          }
+      }
+      if (!$available) continue;
+  ?>
+  <section id="<?= htmlspecialchars($case['id']) ?>">
+    <h2><?= htmlspecialchars($case['title']) ?></h2>
+    <?php if (!empty($case['intro'])): ?>
+      <p class="lede" style="font-size:16px;margin-bottom:18px"><?= htmlspecialchars($case['intro']) ?></p>
+    <?php endif; ?>
+    <?php foreach ($available as $video):
+        $ext  = strtolower(pathinfo($video['file'], PATHINFO_EXTENSION));
+        $mime = $ext === 'webm' ? 'video/webm' : ($ext === 'ogg' ? 'video/ogg' : 'video/mp4');
+    ?>
+    <div class="panel video" style="margin-bottom:16px">
       <figure>
         <video controls loop preload="metadata" playsinline
                <?php if (!empty($video['poster']) && is_file(__DIR__ . '/' . $video['poster'])): ?>poster="<?= htmlspecialchars($video['poster']) ?>"<?php endif; ?>>
           <source src="<?= htmlspecialchars($video['file']) ?>" type="<?= $mime ?>">
-          Your browser can't play this video â€” <a href="<?= htmlspecialchars($video['file']) ?>">download it</a> instead.
+          Your browser can't play this video — <a href="<?= htmlspecialchars($video['file']) ?>">download it</a> instead.
         </video>
         <?php if (!empty($video['caption'])): ?><figcaption><?= htmlspecialchars($video['caption']) ?></figcaption><?php endif; ?>
       </figure>
     </div>
+    <?php endforeach; ?>
   </section>
-  <?php endif; ?>
+  <?php endforeach; ?>
 
   <!-- ===== Animated explainer ===== -->
   <section>
     <h2>How it finds the drone</h2>
     <p class="lede" style="font-size:16px;margin-bottom:18px">A drone's rotor noise reaches each of the four mics at a slightly
-      different instant. The FPGA sweeps a delay-and-sum beam until those delays line up â€” that angle is the bearing, and the gimbal follows it.</p>
+      different instant. The FPGA sweeps a delay-and-sum beam until those delays line up — that angle is the bearing, and the gimbal follows it.</p>
     <div class="panel anim">
       <svg viewBox="0 0 720 360" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Animated explainer: acoustic beam finds and tracks a drone">
         <!-- ground -->
@@ -218,14 +260,14 @@ $video = [
           <circle cx="11"  cy="-7" r="4.5" style="animation:micPulse 2s ease-in-out infinite;animation-delay:.3s"/>
           <circle cx="-11" cy="7"  r="4.5" style="animation:micPulse 2s ease-in-out infinite;animation-delay:.6s"/>
           <circle cx="11"  cy="7"  r="4.5" style="animation:micPulse 2s ease-in-out infinite;animation-delay:.9s"/>
-          <text x="0" y="40" text-anchor="middle" style="fill:#8a9bb0;font:12px ui-monospace,monospace">4-mic hub Â· FPGA sync</text>
+          <text x="0" y="40" text-anchor="middle" style="fill:#8a9bb0;font:12px ui-monospace,monospace">4-mic hub · FPGA sync</text>
         </g>
 
         <!-- lock-on callout -->
         <g style="animation:lockFade 8s ease-in-out infinite">
           <rect x="470" y="40" width="210" height="52" rx="8" fill="#0f1620" stroke="#3ad1a0" stroke-width="1.5"/>
           <text x="484" y="64" style="fill:#3ad1a0;font:600 13px ui-monospace,monospace">BEARING LOCK</text>
-          <text x="484" y="82" style="fill:#8a9bb0;font:12px ui-monospace,monospace">az 31Â°  el 22Â°  â†’ gimbal</text>
+          <text x="484" y="82" style="fill:#8a9bb0;font:12px ui-monospace,monospace">az 31°  el 22°  ? gimbal</text>
         </g>
       </svg>
       <div class="anim-cap">
@@ -266,8 +308,8 @@ $video = [
           <circle cx="<?= round($x,1) ?>" cy="<?= round($y,1) ?>" r="9" fill="#3ad1a0"/>
           <text x="<?= round($x,1) ?>" y="<?= round($y+4,1) ?>" text-anchor="middle" style="fill:#0b0f14;font:700 10px ui-monospace,monospace"><?= $i ?></text>
         <?php endfor; ?>
-        <text class="s" x="105" y="236" text-anchor="middle">4Ã— ICS-43434</text>
-        <text class="s" x="105" y="254" text-anchor="middle">4 arms Â· 30Â° elevation</text>
+        <text class="s" x="105" y="236" text-anchor="middle">4× ICS-43434</text>
+        <text class="s" x="105" y="254" text-anchor="middle">4 arms · 30° elevation</text>
 
         <!-- FPGA group -->
         <rect class="grp" x="225" y="40" width="330" height="320" rx="10"/>
@@ -283,7 +325,7 @@ $video = [
 
         <rect class="box" x="400" y="80" width="140" height="60" rx="6"/>
         <text class="t" x="470" y="105" text-anchor="middle">TDOA Timestamp</text>
-        <text class="s" x="470" y="124" text-anchor="middle">Âµs counter latch</text>
+        <text class="s" x="470" y="124" text-anchor="middle">µs counter latch</text>
 
         <rect class="box" x="400" y="160" width="140" height="60" rx="6"/>
         <text class="t" x="470" y="185" text-anchor="middle">Delay-and-Sum</text>
@@ -291,7 +333,7 @@ $video = [
 
         <rect class="box" x="245" y="240" width="140" height="60" rx="6"/>
         <text class="t" x="315" y="265" text-anchor="middle">Decimator</text>
-        <text class="s" x="315" y="284" text-anchor="middle">48 â†’ 16 kHz</text>
+        <text class="s" x="315" y="284" text-anchor="middle">48 ? 16 kHz</text>
 
         <rect class="box" x="400" y="240" width="140" height="60" rx="6"/>
         <text class="t" x="470" y="265" text-anchor="middle">Audio FIFO</text>
@@ -347,7 +389,7 @@ $video = [
         <path class="w" d="M805 270 H840 V210 H853"/>
 
         <!-- Legend -->
-        <text class="s" x="20" y="410">Single shared BCLK/WS â†’ all 4 mics sampled on the same edge; inter-mic delay is purely acoustic.</text>
+        <text class="s" x="20" y="410">Single shared BCLK/WS ? all 4 mics sampled on the same edge; inter-mic delay is purely acoustic.</text>
         <text class="s" x="20" y="430">FPGA does the time-critical work (capture, timestamps, beam energy); ESP32-S3 refines bearing, classifies, and drives outputs.</text>
       </svg>
     </div>
@@ -398,23 +440,23 @@ $video = [
   <section>
     <h2>How direction finding works</h2>
     <p>A sound wave from a distant drone reaches each microphone at a slightly different time.
-      For a plane wave arriving from unit direction <b>u</b> (azimuth Î¸, elevation Ï†), the delay at mic <i>i</i>
+      For a plane wave arriving from unit direction <b>u</b> (azimuth ?, elevation f), the delay at mic <i>i</i>
       at position <b>p</b><sub>i</sub> relative to the array centre is:</p>
-    <div class="math">Ï„áµ¢ = âˆ’(páµ¢ Â· u) / c&nbsp;&nbsp;&nbsp;&nbsp;u = [cos Ï† cos Î¸, cos Ï† sin Î¸, sin Ï†],&nbsp; c â‰ˆ 343 m/s</div>
+    <div class="math">t? = -(p? · u) / c&nbsp;&nbsp;&nbsp;&nbsp;u = [cos f cos ?, cos f sin ?, sin f],&nbsp; c ˜ 343 m/s</div>
     <p>The FPGA sweeps a grid of look directions, shifts each channel by its predicted delay and sums them.
       The direction with maximum summed energy is the coarse bearing:</p>
-    <div class="math">P(Î¸, Ï†) = Î£â‚™ | Î£áµ¢ xáµ¢[n âˆ’ Ï„áµ¢(Î¸, Ï†)Â·fâ‚›] |Â²</div>
-    <p>At 48 kHz one sample is 20.8 Âµs, or about 7.1 mm of acoustic path. Half-sample steps in the FPGA give a
+    <div class="math">P(?, f) = S? | S? x?[n - t?(?, f)·f?] |²</div>
+    <p>At 48 kHz one sample is 20.8 µs, or about 7.1 mm of acoustic path. Half-sample steps in the FPGA give a
       fast coarse sweep; the ESP32-S3 then refines the peak using hardware-timestamped TDOA and
       GCC-PHAT cross-correlation for sub-sample accuracy. Elevation is recoverable because the array is
-      not purely planar â€” the four mics sit at the tips of arms raised 30Â°, so the geometry spans three dimensions.</p>
+      not purely planar — the four mics sit at the tips of arms raised 30°, so the geometry spans three dimensions.</p>
   </section>
 
 </main>
 
 <footer>
   <div class="wrap">
-    Â© <?= date('Y') ?> iproto.com Â· Audio Tracker Â· <a href="https://iproto.com/">â† Back to Home</a>
+    © <?= date('Y') ?> iproto.com · Audio Tracker · <a href="https://iproto.com/">? Back to Home</a>
   </div>
 </footer>
 
